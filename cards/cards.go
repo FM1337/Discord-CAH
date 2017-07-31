@@ -18,7 +18,7 @@ type blackCard struct {
 }
 
 type whiteCard struct {
-	cardText string
+	CardText string
 }
 
 var CardList cards

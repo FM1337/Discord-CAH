@@ -2,22 +2,28 @@ package game
 
 import (
 	"fmt"
+	"log"
+	"math/rand"
 	"time"
 
+	"github.com/FM1337/Discord-CAH/cards"
 	"github.com/FM1337/Discord-CAH/utils"
 	"github.com/bwmarrin/discordgo"
 )
 
 type Player struct {
-	PlayerID string
-	Cards    []WhiteCard
-	Points   int
+	PlayerID    string
+	Cards       []WhiteCard
+	Points      int
+	CardZar     bool
+	PickedCards []WhiteCard
 }
 
 type WhiteCard struct {
 	CardID int
 	Text   string
 	Blank  bool
+	taken  bool
 }
 
 type BlackCard struct {
@@ -28,6 +34,8 @@ type BlackCard struct {
 
 var Players map[string]Player = make(map[string]Player)
 
+var RoundBlackCards map[int]BlackCard = make(map[int]BlackCard)
+var RoundWhiteCards map[int]WhiteCard = make(map[int]WhiteCard)
 var running bool
 var starting bool
 var paused bool
@@ -51,7 +59,7 @@ func StartGame(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	time.Sleep(30 * time.Second)
 	fmt.Printf("%d players", len(Players))
-	if len(Players) < 3 && starting {
+	if len(Players) < 1 && starting {
 		s.ChannelMessageSend(m.ChannelID, "Not enough players to start the game!")
 		starting = false
 		creatorID = ""
@@ -61,7 +69,10 @@ func StartGame(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	starting = false
 	running = true
+	LoadTmpCards()
+	GenerateHand()
 	s.ChannelMessageSend(m.ChannelID, "The game has started!")
+	Game(s, m)
 	return
 }
 
@@ -160,4 +171,87 @@ func LeaveGame(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	return
+}
+
+func LoadTmpCards() {
+	for i, card := range cards.CardList.BlackCards {
+		RoundBlackCards[i] = BlackCard{
+			CardID: i,
+			Text:   card.CardText,
+			Cards:  card.Cards2Play,
+		}
+	}
+	for i, card := range cards.CardList.WhiteCards {
+		RoundWhiteCards[i] = WhiteCard{
+			CardID: i,
+			Text:   card.CardText,
+			taken:  false,
+		}
+	}
+}
+
+func Game(s *discordgo.Session, m *discordgo.MessageCreate) {
+	round := 1
+	for {
+		if round > 10 || !running {
+			break
+		}
+		if paused {
+			time.Sleep(3 * time.Second)
+			continue
+		}
+		seed := rand.NewSource(time.Now().UnixNano())
+		random := rand.New(seed)
+		roundCard := RoundBlackCards[random.Intn(len(RoundBlackCards))]
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Round %d, [name] is the cardzar!", round))
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s", roundCard.Text))
+		time.Sleep(500 * time.Millisecond)
+		MessageCards(s, m)
+		s.ChannelMessageSend(m.ChannelID, "Players you have 30 seconds to choose a card/cards to play!")
+		time.Sleep(30 * time.Second)
+		delete(RoundBlackCards, roundCard.CardID)
+		round = round + 1
+	}
+	RoundBlackCards = make(map[int]BlackCard)
+}
+
+// GenerateHand will generate a player's hand when the game first starts.
+func GenerateHand() {
+	for _, player := range Players {
+		var cardList []WhiteCard
+		seed := rand.NewSource(time.Now().UnixNano())
+		for i := 0; i <= 10; i++ {
+			var RandomCard WhiteCard
+			for {
+				random := rand.New(seed)
+				RandomChoice := RoundWhiteCards[random.Intn(len(RoundWhiteCards))]
+				if !RandomChoice.taken {
+					RandomCard = RandomChoice
+					RandomCard.taken = true
+					RoundWhiteCards[RandomCard.CardID] = RandomCard
+					break
+				}
+				time.Sleep(500 * time.Millisecond)
+			}
+			cardList = append(cardList, RandomCard)
+		}
+		player.Cards = cardList
+		fmt.Printf("%v\n", player.Cards)
+		Players[player.PlayerID] = player
+	}
+}
+
+// MessageCards will message users their hand
+func MessageCards(s *discordgo.Session, m *discordgo.MessageCreate) {
+	for _, player := range Players {
+		channel, err := s.UserChannelCreate(player.PlayerID)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		s.ChannelMessageSend(channel.ID, fmt.Sprintf("Your cards this round: %v", player.Cards))
+		time.Sleep(1 * time.Second)
+
+	}
 }
