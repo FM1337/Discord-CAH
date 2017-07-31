@@ -10,13 +10,20 @@ import (
 
 type Player struct {
 	PlayerID string
-	Cards    []Card
+	Cards    []WhiteCard
 	Points   int
 }
 
-type Card struct {
-	Text  string
-	Blank bool
+type WhiteCard struct {
+	CardID int
+	Text   string
+	Blank  bool
+}
+
+type BlackCard struct {
+	CardID int
+	Text   string
+	Cards  int
 }
 
 var Players map[string]Player = make(map[string]Player)
