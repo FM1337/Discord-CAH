@@ -31,6 +31,12 @@ func RegisterCommands() {
 	CL.CommandList = append(CL.CommandList, Command{
 		Name: "Stop", Command: game.StopGame,
 	})
+	CL.CommandList = append(CL.CommandList, Command{
+		Name: "Join", Command: game.JoinGame,
+	})
+	CL.CommandList = append(CL.CommandList, Command{
+		Name: "Leave", Command: game.LeaveGame,
+	})
 }
 
 // RunCommand runs a specified command.

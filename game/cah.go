@@ -19,9 +19,10 @@ type Card struct {
 	Blank bool
 }
 
-var Players []Player
+var Players map[string]Player = make(map[string]Player)
 
 var running bool
+var starting bool
 var paused bool
 
 var creatorID string
@@ -29,27 +30,31 @@ var pauserID string
 
 func StartGame(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// TODO: Game code
-
-	if running {
+	if running || starting {
 		s.ChannelMessageSend(utils.Config.CAHChannelID, "A game is already running")
 		return
 	}
 
-	running = true
+	starting = true
 	creatorID = m.Author.ID
 	s.ChannelMessageSend(utils.Config.CAHChannelID, fmt.Sprintf("%s started a game!", m.Author.Username))
-	Players = append(Players, Player{PlayerID: m.Author.ID, Cards: nil, Points: 0})
+	Players[m.Author.ID] = Player{PlayerID: m.Author.ID, Cards: nil, Points: 0}
 
 	s.ChannelMessageSend(utils.Config.CAHChannelID, fmt.Sprintf("The game will start in 30 seconds, type %sjoin to join in!", utils.Config.Prefix))
 
 	time.Sleep(30 * time.Second)
-	if len(Players) < 3 {
+	fmt.Printf("%d players", len(Players))
+	if len(Players) < 3 && starting {
 		s.ChannelMessageSend(utils.Config.CAHChannelID, "Not enough players to start the game!")
-		running = false
+		starting = false
 		creatorID = ""
+		Players = make(map[string]Player)
 		return
 	}
 
+	starting = false
+	running = true
+	s.ChannelMessageSend(utils.Config.CAHChannelID, "The game has started!")
 	return
 }
 
@@ -88,19 +93,64 @@ func PauseGame(s *discordgo.Session, m *discordgo.MessageCreate) {
 func StopGame(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// TODO: Game code
 	if !running {
-		s.ChannelMessageSend(utils.Config.CAHChannelID, "No game is running")
-		return
+		if !starting {
+			s.ChannelMessageSend(utils.Config.CAHChannelID, "No game is running")
+			return
+		}
 	}
 
 	for _, player := range Players {
 		if m.Author.ID == player.PlayerID {
 			s.ChannelMessageSend(utils.Config.CAHChannelID, fmt.Sprintf("%s stopped the game!", m.Author.Username))
 			running = false
-			Players = nil
+			starting = false
+			Players = make(map[string]Player)
 			return
 		}
 	}
 
 	s.ChannelMessageSend(utils.Config.CAHChannelID, "You must be a player to stop the game!")
+	return
+}
+
+func JoinGame(s *discordgo.Session, m *discordgo.MessageCreate) {
+	if !running {
+		if !starting {
+			s.ChannelMessageSend(utils.Config.CAHChannelID, fmt.Sprintf("No game is running! Type %sstart to start a game", utils.Config.Prefix))
+			return
+		}
+
+	}
+
+	for _, player := range Players {
+		if m.Author.ID == player.PlayerID {
+			s.ChannelMessageSend(utils.Config.CAHChannelID, "You've already joined!")
+			return
+		}
+	}
+	Players[m.Author.ID] = Player{PlayerID: m.Author.ID, Cards: nil, Points: 0}
+	s.ChannelMessageSend(utils.Config.CAHChannelID, fmt.Sprintf("%s joined the game!", m.Author.Username))
+	return
+}
+
+func LeaveGame(s *discordgo.Session, m *discordgo.MessageCreate) {
+
+	if !running {
+		if !starting {
+			s.ChannelMessageSend(utils.Config.CAHChannelID, "No game is running")
+			return
+		}
+	}
+
+	delete(Players, m.Author.ID)
+	s.ChannelMessageSend(utils.Config.CAHChannelID, fmt.Sprintf("%s has left the game!", m.Author.Username))
+
+	if len(Players) < 3 && running {
+		s.ChannelMessageSend(utils.Config.CAHChannelID, "Not enough players to continue!")
+		running = false
+		Players = make(map[string]Player)
+		return
+	}
+
 	return
 }
