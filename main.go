@@ -8,6 +8,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/FM1337/Discord-CAH/cards"
 	"github.com/FM1337/Discord-CAH/commands"
 	"github.com/FM1337/Discord-CAH/utils"
 	"github.com/bwmarrin/discordgo"
@@ -18,6 +19,7 @@ func main() {
 	// TODO: Check for cards on start up.
 	utils.Config.LoadConfig()
 	commands.RegisterCommands()
+	cards.LoadCards()
 	discord()
 }
 
