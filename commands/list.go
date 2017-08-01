@@ -23,19 +23,19 @@ var CL Commands
 
 func RegisterCommands() {
 	CL.CommandList = append(CL.CommandList, Command{
-		Name: "Start", Command: game.StartGame,
+		Name: "Start", Command: game.Start,
 	})
 	CL.CommandList = append(CL.CommandList, Command{
-		Name: "Pause", Command: game.PauseGame,
+		Name: "Pause", Command: game.Pause,
 	})
 	CL.CommandList = append(CL.CommandList, Command{
-		Name: "Stop", Command: game.StopGame,
+		Name: "Stop", Command: game.Stop,
 	})
 	CL.CommandList = append(CL.CommandList, Command{
-		Name: "Join", Command: game.JoinGame,
+		Name: "Join", Command: game.Join,
 	})
 	CL.CommandList = append(CL.CommandList, Command{
-		Name: "Leave", Command: game.LeaveGame,
+		Name: "Leave", Command: game.Leave,
 	})
 	CL.CommandList = append(CL.CommandList, Command{
 		Name: "Cards", Command: TotalCards,
@@ -44,7 +44,7 @@ func RegisterCommands() {
 		Name: "Pick", Command: game.PickCard,
 	})
 	CL.CommandList = append(CL.CommandList, Command{
-		Name: "Choose", Command: game.PickWinner,
+		Name: "Choose", Command: game.ChooseWinner,
 	})
 }
 

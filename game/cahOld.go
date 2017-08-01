@@ -1,18 +1,9 @@
 package game
 
-import (
-	"fmt"
-	"log"
-	"math/rand"
-	"strconv"
-	"strings"
-	"time"
-
-	"github.com/FM1337/Discord-CAH/cards"
-	"github.com/FM1337/Discord-CAH/utils"
-	"github.com/bwmarrin/discordgo"
-)
-
+// This entire script is being redone!
+// I couldn't get this one to work correctly, so instead of just wasting hours
+// on it, I am rebuilding it so that it is cleaner and easy to manage.
+/*
 type Player struct {
 	PlayerID     string
 	PlayerName   string
@@ -51,7 +42,7 @@ type BlackCard struct {
 }
 
 var Players map[string]Player = make(map[string]Player)
-var Cardzars map[int]CardZar = make(map[int]CardZar)
+var Cardzars []CardZar
 
 //var PlayerIDList []int
 
@@ -95,13 +86,23 @@ func StartGame(s *discordgo.Session, m *discordgo.MessageCreate) {
 	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("The game will start in 30 seconds, type %sjoin to join in!", utils.Config.Prefix))
 
 	time.Sleep(30 * time.Second)
-	fmt.Printf("%d players", len(Players))
 	if len(Players) < 3 && starting {
 		s.ChannelMessageSend(m.ChannelID, "Not enough players to start the game!")
-		starting = false
-		creatorID = ""
-		Players = make(map[string]Player)
-		return
+		s.ChannelMessageSend(m.ChannelID, "We'll wait 3 minutes for the minmium amount of players required")
+		stopGame := true
+		for i := 0; i <= 180; i++ {
+			if len(Players) >= 3 {
+				stopGame = false
+				break
+			}
+			time.Sleep(1 * time.Second)
+		}
+		if stopGame {
+			starting = false
+			creatorID = ""
+			Players = make(map[string]Player)
+			return
+		}
 	}
 	s.ChannelMessageSend(m.ChannelID, "Loading please wait...")
 	starting = false
@@ -283,7 +284,7 @@ func Game(s *discordgo.Session, m *discordgo.MessageCreate) {
 			break
 		}
 		s.ChannelMessageSend(m.ChannelID, "Players you have 30 seconds to choose a card/cards to play!")
-		for i := 0; i <= 60; i++ {
+		for i := 0; i <= 30; i++ {
 			if !running {
 				break
 			}
@@ -291,43 +292,52 @@ func Game(s *discordgo.Session, m *discordgo.MessageCreate) {
 				i = i - 1
 			}
 			time.Sleep(1 * time.Second)
+			if PlayNum == len(Players)-1 {
+				break
+			}
 		}
 		if !running {
 			break
 		}
 		choosing = false
-		s.ChannelMessageSend(m.ChannelID, "Time is up! Let's see our options!")
-		for _, choice := range RoundChoices {
-			s.ChannelMessageSend(m.ChannelID, choice.Play)
-		}
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Okay %s, it's time to choose a winner, you have 60 seconds! Use %schoose to pick a winner!", roundZar, utils.Config.Prefix))
-		for i := 0; i <= 60; i++ {
-			time.Sleep(1 * time.Second)
-			if paused {
-				i = i - 1
-				continue
+		if PlayNum >= 2 {
+			s.ChannelMessageSend(m.ChannelID, "Time is up! Let's see our options!")
+			for _, choice := range RoundChoices {
+				s.ChannelMessageSend(m.ChannelID, choice.Play)
 			}
-			if chosen {
-				WinnerUser, _ := s.User(winner.PlayerID)
-				s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Congrats %s you won this round with\n%s", WinnerUser.Username, winner.Play))
+			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Okay %s, it's time to choose a winner, you have 60 seconds! Use %schoose to pick a winner!", roundZar, utils.Config.Prefix))
+			for i := 0; i <= 60; i++ {
+				time.Sleep(1 * time.Second)
+				if paused {
+					i = i - 1
+					continue
+				}
+				if chosen {
+					WinnerUser, _ := s.User(winner.PlayerID)
+					s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Congrats %s you won this round with\n%s", WinnerUser.Username, winner.Play))
 
-				tmpWinner := Players[winner.PlayerID]
-				tmpWinner.Points = tmpWinner.Points + 1
-				Players[winner.PlayerID] = tmpWinner
+					tmpWinner := Players[winner.PlayerID]
+					tmpWinner.Points = tmpWinner.Points + 1
+					Players[winner.PlayerID] = tmpWinner
 
-				break
+					break
+				}
 			}
-		}
-		if !chosen {
-			s.ChannelMessageSend(m.ChannelID, "The Card Zar did not pick in time, no one wins :(")
-		}
-		delete(RoundBlackCards, roundCard.CardID)
-		ChooseCardZar(cardzarNumber, false)
-		round = round + 1
-		cardzarNumber = cardzarNumber + 1
-		DrawCards()
-		if cardzarNumber > LastPlayerNumber {
-			cardzarNumber = 1
+			if !chosen {
+				s.ChannelMessageSend(m.ChannelID, "The Card Zar did not pick in time, no one wins :(")
+			}
+			delete(RoundBlackCards, roundCard.CardID)
+			ChooseCardZar(cardzarNumber, false)
+			round = round + 1
+			cardzarNumber = cardzarNumber + 1
+			DrawCards()
+			if cardzarNumber > LastPlayerNumber {
+				cardzarNumber = 1
+			}
+
+		} else {
+			s.ChannelMessageSend(m.ChannelID, "Not enough choices to play, moving to next round!")
+			continue
 		}
 
 	}
@@ -364,7 +374,6 @@ func GenerateHand() {
 			}
 			player.Cards[RandomCard.Index] = RandomCard
 		}
-		fmt.Printf("%v\n", player.Cards)
 		Players[player.PlayerID] = player
 	}
 }
@@ -411,12 +420,13 @@ func MessageCards(s *discordgo.Session, m *discordgo.MessageCreate) {
 }
 
 func CardZarOrder() {
-	Cardzars = make(map[int]CardZar)
+	i := 0
 	for _, player := range Players {
-		Cardzars[player.PlayerNumber] = CardZar{
+		Cardzars = append(Cardzars, CardZar{
 			PlayerNumber: player.PlayerNumber,
 			PlayerID:     player.PlayerID,
-		}
+		})
+		i++
 	}
 }
 
@@ -580,3 +590,5 @@ func DrawCards() {
 	}
 
 }
+
+*/
