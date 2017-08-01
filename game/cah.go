@@ -281,6 +281,9 @@ func Game(s *discordgo.Session, m *discordgo.MessageCreate) {
 			if !running {
 				break
 			}
+			if paused {
+				i = i - 1
+			}
 			time.Sleep(1 * time.Second)
 		}
 		if !running {
@@ -291,8 +294,13 @@ func Game(s *discordgo.Session, m *discordgo.MessageCreate) {
 		for _, choice := range RoundChoices {
 			s.ChannelMessageSend(m.ChannelID, choice.Play)
 		}
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Okay @%s, it's time to choose a winner, you have 60 seconds!", roundZar))
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Okay %s, it's time to choose a winner, you have 60 seconds! Use %schoose to pick a winner!", roundZar, utils.Config.Prefix))
 		for i := 0; i <= 60; i++ {
+			time.Sleep(1 * time.Second)
+			if paused {
+				i = i - 1
+				continue
+			}
 			if chosen {
 				WinnerUser, _ := s.User(winner.PlayerID)
 				s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Congrats %s you won this round with\n%s", WinnerUser.Username, winner.Play))
@@ -303,7 +311,6 @@ func Game(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 				break
 			}
-			time.Sleep(1 * time.Second)
 		}
 		if !chosen {
 			s.ChannelMessageSend(m.ChannelID, "The Card Zar did not pick in time, no one wins :(")
