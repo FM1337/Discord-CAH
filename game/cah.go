@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/FM1337/Discord-CAH/cards"
@@ -12,11 +14,18 @@ import (
 )
 
 type Player struct {
-	PlayerID    string
-	Cards       []WhiteCard
-	Points      int
-	CardZar     bool
-	PickedCards []WhiteCard
+	PlayerID     string
+	PlayerName   string
+	PlayerNumber int
+	Cards        []WhiteCard
+	Points       int
+	CardZar      bool
+	PickedCards  []WhiteCard
+}
+
+type CardZar struct {
+	PlayerNumber int
+	PlayerID     string
 }
 
 type WhiteCard struct {
@@ -33,15 +42,22 @@ type BlackCard struct {
 }
 
 var Players map[string]Player = make(map[string]Player)
+var Cardzars map[int]CardZar = make(map[int]CardZar)
+var PlayerIDList []int
 
 var RoundBlackCards map[int]BlackCard = make(map[int]BlackCard)
 var RoundWhiteCards map[int]WhiteCard = make(map[int]WhiteCard)
+var roundText string
+var roundPlay int
+var roundZar string
+
 var running bool
 var starting bool
 var paused bool
 
 var creatorID string
 var pauserID string
+var LastPlayerNumber int
 
 func StartGame(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// TODO: Game code
@@ -53,7 +69,8 @@ func StartGame(s *discordgo.Session, m *discordgo.MessageCreate) {
 	starting = true
 	creatorID = m.Author.ID
 	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s started a game!", m.Author.Username))
-	Players[m.Author.ID] = Player{PlayerID: m.Author.ID, Cards: nil, Points: 0}
+	Players[m.Author.ID] = Player{PlayerID: m.Author.ID, Cards: nil, Points: 0, PlayerNumber: 1, PlayerName: m.Author.Username}
+	LastPlayerNumber = 1
 
 	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("The game will start in 30 seconds, type %sjoin to join in!", utils.Config.Prefix))
 
@@ -66,11 +83,12 @@ func StartGame(s *discordgo.Session, m *discordgo.MessageCreate) {
 		Players = make(map[string]Player)
 		return
 	}
-
+	s.ChannelMessageSend(m.ChannelID, "Loading please wait...")
 	starting = false
 	running = true
 	LoadTmpCards()
 	GenerateHand()
+	CardZarOrder()
 	s.ChannelMessageSend(m.ChannelID, "The game has started!")
 	Game(s, m)
 	return
@@ -146,7 +164,7 @@ func JoinGame(s *discordgo.Session, m *discordgo.MessageCreate) {
 			return
 		}
 	}
-	Players[m.Author.ID] = Player{PlayerID: m.Author.ID, Cards: nil, Points: 0}
+	Players[m.Author.ID] = Player{PlayerID: m.Author.ID, Cards: nil, Points: 0, PlayerNumber: LastPlayerNumber + 1, PlayerName: m.Author.Username}
 	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s joined the game!", m.Author.Username))
 	return
 }
@@ -170,6 +188,14 @@ func LeaveGame(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
+	i := 1
+	for _, player := range Players {
+		player.PlayerNumber = i
+		Players[player.PlayerID] = player
+		LastPlayerNumber = i
+		i = i + 1
+	}
+	CardZarOrder()
 	return
 }
 
@@ -192,6 +218,7 @@ func LoadTmpCards() {
 
 func Game(s *discordgo.Session, m *discordgo.MessageCreate) {
 	round := 1
+	cardzarNumber := 1
 	for {
 		if round > 10 || !running {
 			break
@@ -200,17 +227,30 @@ func Game(s *discordgo.Session, m *discordgo.MessageCreate) {
 			time.Sleep(3 * time.Second)
 			continue
 		}
+		roundZar = ChooseCardZar(cardzarNumber, true)
 		seed := rand.NewSource(time.Now().UnixNano())
 		random := rand.New(seed)
 		roundCard := RoundBlackCards[random.Intn(len(RoundBlackCards))]
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Round %d, [name] is the cardzar!", round))
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s", roundCard.Text))
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Round %d, %s is the cardzar!", round, roundZar))
+		roundPlay = roundCard.Cards
+		if roundPlay == 0 {
+			roundPlay = 1
+		}
+		roundText = roundCard.Text
+		roundText = strings.Replace(roundText, "_", "______", -1)
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s", roundText))
 		time.Sleep(500 * time.Millisecond)
 		MessageCards(s, m)
 		s.ChannelMessageSend(m.ChannelID, "Players you have 30 seconds to choose a card/cards to play!")
 		time.Sleep(30 * time.Second)
 		delete(RoundBlackCards, roundCard.CardID)
+		ChooseCardZar(cardzarNumber, false)
 		round = round + 1
+		cardzarNumber = cardzarNumber + 1
+		if cardzarNumber > LastPlayerNumber {
+			cardzarNumber = 1
+		}
+
 	}
 	RoundBlackCards = make(map[int]BlackCard)
 }
@@ -220,7 +260,7 @@ func GenerateHand() {
 	for _, player := range Players {
 		var cardList []WhiteCard
 		seed := rand.NewSource(time.Now().UnixNano())
-		for i := 0; i <= 10; i++ {
+		for i := 0; i != 10; i++ {
 			var RandomCard WhiteCard
 			for {
 				random := rand.New(seed)
@@ -231,7 +271,6 @@ func GenerateHand() {
 					RoundWhiteCards[RandomCard.CardID] = RandomCard
 					break
 				}
-				time.Sleep(500 * time.Millisecond)
 			}
 			cardList = append(cardList, RandomCard)
 		}
@@ -239,6 +278,29 @@ func GenerateHand() {
 		fmt.Printf("%v\n", player.Cards)
 		Players[player.PlayerID] = player
 	}
+}
+
+func CardsEmbed(PlayerCards []WhiteCard) *discordgo.MessageEmbed {
+
+	fields := []*discordgo.MessageEmbedField{}
+	for i, card := range PlayerCards {
+		iString := strconv.Itoa(i + 1)
+		fields = append(fields, &discordgo.MessageEmbedField{
+			Name:   iString,
+			Value:  card.Text,
+			Inline: true,
+		})
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Type:        "rich",
+		Color:       52,
+		Title:       fmt.Sprintf("Your cards (%d)", len(PlayerCards)),
+		Description: roundText,
+		Fields:      fields,
+	}
+
+	return embed
 }
 
 // MessageCards will message users their hand
@@ -249,9 +311,91 @@ func MessageCards(s *discordgo.Session, m *discordgo.MessageCreate) {
 		if err != nil {
 			log.Fatal(err)
 		}
-
-		s.ChannelMessageSend(channel.ID, fmt.Sprintf("Your cards this round: %v", player.Cards))
+		CEmbed := CardsEmbed(player.Cards)
+		s.ChannelMessageSendEmbed(channel.ID, CEmbed)
 		time.Sleep(1 * time.Second)
 
 	}
+}
+
+func CardZarOrder() {
+	Cardzars = make(map[int]CardZar)
+	for _, player := range Players {
+		Cardzars[player.PlayerNumber] = CardZar{
+			PlayerNumber: player.PlayerNumber,
+			PlayerID:     player.PlayerID,
+		}
+	}
+}
+
+func ChooseCardZar(CardzarNum int, current bool) string {
+	PlayerID := Cardzars[CardzarNum].PlayerID
+	tmpPlayer := Players[PlayerID]
+	if current {
+		tmpPlayer.CardZar = true
+	} else {
+		tmpPlayer.CardZar = false
+	}
+	Players[PlayerID] = tmpPlayer
+	return tmpPlayer.PlayerName
+}
+
+func PickCard(s *discordgo.Session, m *discordgo.MessageCreate) {
+	if !running {
+		s.ChannelMessageSend(m.ChannelID, "No game is running!")
+		return
+	}
+
+	playing := false
+	for _, player := range Players {
+		if m.Author.ID == player.PlayerID {
+			playing = true
+			break
+		}
+	}
+
+	if !playing {
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("You aren't playing! Type %sjoin to join", utils.Config.Prefix))
+		return
+	}
+
+	if m.Author.Username == roundZar {
+		s.ChannelMessageSend(m.ChannelID, "You're the CardZar, you don't play cards this round!")
+		return
+	}
+
+	args := strings.Split(m.Content, " ")
+	if len(args)-1 == roundPlay {
+		tmpPlayer := Players[m.Author.ID]
+		tmpPlayer.PickedCards = nil
+		tmpRoundText := roundText
+		for _, card := range args[1:] {
+
+			cardNum, err := strconv.Atoi(card)
+
+			if err != nil {
+				s.ChannelMessageSend(m.ChannelID, "Invalid number!")
+				fmt.Printf("%s\n", err)
+				return
+			}
+			if strings.Contains(roundText, "______") {
+				tmpPlayer.PickedCards = append(tmpPlayer.PickedCards, tmpPlayer.Cards[utils.IndexFixer(len(tmpPlayer.Cards), cardNum)])
+
+				tmpRoundText = strings.Replace(tmpRoundText, "______", tmpPlayer.Cards[utils.IndexFixer(len(tmpPlayer.Cards), cardNum)].Text, 1)
+			} else {
+				tmpRoundText = fmt.Sprintf("%s %s", tmpRoundText, tmpPlayer.Cards[utils.IndexFixer(len(tmpPlayer.Cards), cardNum)].Text)
+			}
+
+		}
+		Players[m.Author.ID] = tmpPlayer
+
+		channel, err := s.UserChannelCreate(m.Author.ID)
+		if err != nil {
+			log.Fatal(err)
+		}
+		s.ChannelMessageSend(channel.ID, fmt.Sprintf("You played: %s", tmpRoundText))
+		return
+
+	}
+	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("You've chosen an incorrect amount of cards to play!, The amount you played was %d when you should've played %d", len(args)-1, roundPlay))
 }

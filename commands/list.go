@@ -40,6 +40,9 @@ func RegisterCommands() {
 	CL.CommandList = append(CL.CommandList, Command{
 		Name: "Cards", Command: TotalCards,
 	})
+	CL.CommandList = append(CL.CommandList, Command{
+		Name: "Pick", Command: game.PickCard,
+	})
 }
 
 // RunCommand runs a specified command.
