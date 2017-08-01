@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/FM1337/Discord-CAH/cards"
+	"github.com/bwmarrin/discordgo"
 )
 
 // Player is a struct that holds a player's data.
@@ -54,7 +55,14 @@ var BlackCards map[int]BlackCard
 // WhiteCards is a map of the WhiteCard struct.
 var WhiteCards map[int]WhiteCard
 
-// InitializeData will prepare the maps and slices for the game
+// Players is a map of the Player struct.
+var Players map[string]Player
+
+// Ints
+// PlayerCount is an int that shows how many player have joined.
+var PlayerCount int
+
+// InitializeData will prepare the maps and slices for the game.
 func InitializeData() {
 	// First we do the black cards
 	BlackCards = make(map[int]BlackCard)
@@ -67,6 +75,12 @@ func InitializeData() {
 	ImportWhiteCards()
 	// Print the amount of White Cards loaded into memory.
 	fmt.Printf("%d White Cards loaded!\n", len(WhiteCards))
+
+	// Moving on, we now want to make the players map.
+	Players = make(map[string]Player)
+
+	// We want to set PlayerCount to 0
+	PlayerCount = 0
 }
 
 // ImportBlackCards will import the black cards.
@@ -93,4 +107,27 @@ func ImportWhiteCards() {
 			taken:  false,
 		}
 	}
+}
+
+// AddPlayer adds a player to the game.
+func AddPlayer(User *discordgo.User) {
+	Players[User.ID] = Player{
+		PlayerName: User.Username,
+		PlayerID:   User.ID,
+		Zar:        false,
+	}
+	// Add 1 to PlayerCount.
+	PlayerCount = PlayerCount + 1
+}
+
+// UserInGame checks if a user is in the game.
+func UserInGame(PlayerID string) bool {
+	for _, player := range Players {
+		// If a match is found return true
+		if player.PlayerID == PlayerID {
+			return true
+		}
+	}
+	// Otherwise return false.
+	return false
 }
