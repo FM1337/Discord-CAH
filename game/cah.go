@@ -206,6 +206,12 @@ func LeaveGame(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 	}
 
+	for _, card := range Players[m.Author.ID].Cards {
+		card.taken = false
+		card.LastUsedBy = ""
+		RoundWhiteCards[card.CardID] = card
+	}
+
 	delete(Players, m.Author.ID)
 	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s has left the game!", m.Author.Username))
 
