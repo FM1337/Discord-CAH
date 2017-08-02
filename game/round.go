@@ -39,12 +39,21 @@ func RoundStart(s *discordgo.Session, m *discordgo.MessageCreate) {
 		// Once that's done.
 		s.ChannelMessageSend(m.ChannelID, "Players you have 30 seconds to choose what to play!")
 		Wait30Seconds()
+		// If the game has ended
+		if !Running {
+			EndGame(s)
+			return
+		}
+
 		s.ChannelMessageSend(m.ChannelID, "Time is up!")
 		Judging = true
 		time.Sleep(500 * time.Millisecond)
 
 		// Now let's generate the results.
 		for _, player := range Players {
+			// skip is a temporary bool that will tell if we should skip
+			// appending.
+			skip := false
 			// let's make sure the player isn't the zar
 			if player.Zar {
 				continue
@@ -53,24 +62,41 @@ func RoundStart(s *discordgo.Session, m *discordgo.MessageCreate) {
 			// tmpString is a temporary string
 			tmpString := BlackCards[RoundCardID].Text
 			for _, card := range player.PlayedCards {
-				tmpString = strings.Replace(tmpString, "_", card.Text, 1)
-				// If no underscores, then add the card to the end.
+				// check to see if the card is blank
+				if card.Text == "" {
+					// If it is, then we break out of this loop and skip the player.
+					skip = true
+					break
+				}
 				if !strings.Contains(tmpString, "_") {
 					tmpString = fmt.Sprintf("%s %s", tmpString, card.Text)
+					continue
 				}
+				tmpString = strings.Replace(tmpString, "_", card.Text, 1)
+				// If no underscores, then add the card to the end.
 			}
-			RoundResults = append(RoundResults, RoundResult{
-				PlayerName: player.PlayerName,
-				PlayerID:   player.PlayerID,
-				PlayString: tmpString,
-			})
+			if !skip {
+				RoundResults = append(RoundResults, RoundResult{
+					PlayerName: player.PlayerName,
+					PlayerID:   player.PlayerID,
+					PlayString: tmpString,
+				})
+			}
 			// Let's wait half a second before moving onto the next player
 			time.Sleep(500 * time.Millisecond)
 		}
+
+		// if we don't have enough results
+		if len(RoundResults) < 2 {
+			s.ChannelMessageSend(m.ChannelID, "Not enough results, next round!")
+			NextRound(s)
+			continue
+		}
+
 		s.ChannelMessageSend(m.ChannelID, "Here are the results:")
 		// Now we loop through the results.
 		for i, result := range RoundResults {
-			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("#%d. %s", i, result.PlayString))
+			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("#%d. %s", i+1, result.PlayString))
 			// Let's wait half a second before sending the next
 			time.Sleep(500 * time.Millisecond)
 		}

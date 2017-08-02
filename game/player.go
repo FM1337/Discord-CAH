@@ -30,6 +30,7 @@ func PickCard(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// Split up the message into arguments
 	args := strings.Split(m.Content, " ")
 	// Make sure we have the correct number of cards being played.
+	fmt.Printf("%d", len(args))
 	if len(args)-1 == BlackCards[RoundCardID].Cards {
 		// Loop through our message arguments and see if they are correct.
 		for _, arg := range args[1:] {
@@ -45,6 +46,14 @@ func PickCard(s *discordgo.Session, m *discordgo.MessageCreate) {
 			if err != nil {
 				s.ChannelMessageSend(m.ChannelID, "Invalid input!")
 				return
+			}
+
+			// Check to make sure that the Player's cards aren't already chosen
+			if len(Players[m.Author.ID].PlayedCards) != 0 {
+				// If they are, then clear them out.
+				tmpPlayer := Players[m.Author.ID]
+				tmpPlayer.PlayedCards = nil
+				Players[m.Author.ID] = tmpPlayer
 			}
 
 			// Now let's loop through our cardlist and see if a match
@@ -73,19 +82,23 @@ func PickCard(s *discordgo.Session, m *discordgo.MessageCreate) {
 		// Now let's loop so that we can generate a message to send to
 		// the player.
 		// tmpString is a temporary string
-		tmpString := RoundText
+		tmpString := BlackCards[RoundCardID].Text
 		for _, card := range Players[m.Author.ID].PlayedCards {
-			tmpString = strings.Replace(tmpString, "_", card.Text, 1)
 			// If no underscores, then add the card to the end.
 			if !strings.Contains(tmpString, "_") {
 				tmpString = fmt.Sprintf("%s %s", tmpString, card.Text)
+				continue
 			}
+			tmpString = strings.Replace(tmpString, "_", card.Text, 1)
 		}
 
 		// Once the loop is done send a message to the player with the result.
 		channel, _ := s.UserChannelCreate(m.Author.ID)
 		s.ChannelMessageSend(channel.ID, fmt.Sprintf("You've played: %s", tmpString))
+		return
 	}
+	// if not enough cards.
+	s.ChannelMessageSend(m.ChannelID, "Sorry you didn't choose the correct amount of cards.")
 }
 
 // ChooseWinner will allow the Card Zar to choose a winner.
@@ -111,8 +124,23 @@ func ChooseWinner(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	// Make sure we're only choosing one winner
 	if len(args) == 2 {
+		// Make sure that we actually passed a number
+		winnerNum, err := strconv.Atoi(args[1])
 
+		if err != nil {
+			s.ChannelMessageSend(m.ChannelID, "Invalid input!")
+			return
+		}
+		// Choose the winner.
+		winner := RoundResults[utils.IndexFixer(winnerNum, len(RoundResults))]
+		tmpWinPlayer := Players[winner.PlayerID]
+		tmpWinPlayer.Score++
+		Players[tmpWinPlayer.PlayerID] = tmpWinPlayer
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Congratulations %s, you win this round with %s", winner.PlayerName, winner.PlayString))
+		Judging = false
+		return
 	}
+	s.ChannelMessageSend(m.ChannelID, "You must pick a winner!")
 }
 
 // MessageHand will message a player their cards.

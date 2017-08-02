@@ -90,10 +90,19 @@ func Pause(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 // Stop will stop the game
 func Stop(s *discordgo.Session, m *discordgo.MessageCreate) {
+	// Check if the game is running
 	if !Running {
 		s.ChannelMessageSend(m.ChannelID, "No game is running!")
 		return
 	}
+
+	// Check if the user is a player
+	if !UserInGame(m.Author.ID) {
+		s.ChannelMessageSend(m.ChannelID, "Only players may pause the game!")
+		return
+	}
+
+	Running = false
 }
 
 // Join will join you into the game

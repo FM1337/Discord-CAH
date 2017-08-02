@@ -133,6 +133,7 @@ func InitializeData() {
 	Round = 0
 	Rounds = 10
 	RoundText = ""
+	RoundResults = nil
 	CreatorID = ""
 	Zars = nil
 	Judging = false
@@ -143,6 +144,11 @@ func ImportBlackCards() {
 	// Loop through the black cards imported at start up of the bot and
 	// add them to our map of black cards.
 	for i, card := range cards.CardList.BlackCards {
+		// If there are no underscores, we still have to play a card.
+		if card.Cards2Play == 0 {
+			card.Cards2Play = 1
+		}
+
 		BlackCards[i] = BlackCard{
 			CardID: i,
 			Text:   card.CardText,
@@ -273,7 +279,7 @@ func GenerateHand(PlayerID string) {
 	// tmpPlayer is a temporary copy of a player in the Players map and
 	// is used to update the player's information with the new cards.
 	tmpPlayer := Players[PlayerID]
-	for i := 0; i <= 10; i++ {
+	for i := 0; i <= 9; i++ {
 		for {
 			// RandomCard is a random card chosen from the WhiteCards map.
 			RandomCard := WhiteCards[rand.Intn(len(WhiteCards))]
@@ -287,6 +293,9 @@ func GenerateHand(PlayerID string) {
 			}
 		}
 	}
+	// Set the player's cards.
+	tmpPlayer.Cards = tmpCards
+	// Update the player's data.
 	Players[PlayerID] = tmpPlayer
 }
 
@@ -305,6 +314,11 @@ func PrepareGame() {
 
 // NextZar chooses the next zar in the Zars slice.
 func NextZar() {
+	// Remove current Zar
+	tmpPlayer := Players[Zars[Zar]]
+	tmpPlayer.Zar = false
+	Players[tmpPlayer.PlayerID] = tmpPlayer
+
 	// If length of the Zars list minus 1 is equal to the current Zar
 	// then we set Zar to 0
 	if len(Zars)-1 == Zar {
@@ -313,6 +327,7 @@ func NextZar() {
 	}
 	// If not, then just add one to Zar
 	Zar++
+
 }
 
 // EndGame is the function that is run at the end of the game.
@@ -326,6 +341,11 @@ func EndGame(s *discordgo.Session) {
 			HighScoreID = player.PlayerID
 		}
 	}
+	// Error catching here, if HighScoreID is blank, then no winners.
+	if HighScoreID == "" {
+		return
+	}
+
 	s.ChannelMessageSend(utils.Config.CAHChannelID, fmt.Sprintf("Congratulations %s You won the game with %d points!", Players[HighScoreID].PlayerName, HighScore))
 	// At this point, I would reset all the variables and stuff, but the
 	// InitializeData function that runs when a new game is started
