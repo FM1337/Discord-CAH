@@ -5,6 +5,7 @@ import (
 	"math/rand"
 
 	"github.com/FM1337/Discord-CAH/cards"
+	"github.com/FM1337/Discord-CAH/utils"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -15,6 +16,7 @@ type Player struct {
 	PlayerID   string      // The player's Discord ID.
 	Zar        bool        // Is the player the card zar?
 	Cards      []WhiteCard // The player's hand.
+	Score      int         // The player's score
 }
 
 // WhiteCard is a struct that holds the data about a white card.
@@ -70,6 +72,15 @@ var Rounds int
 // Round is an int that holds the current round number.
 var Round int
 
+// Zar is an int that holds the current Zar's index number of Zars.
+var Zar int
+
+// RoundCardID contains the round's black card ID
+var RoundCardID int
+
+// HighScore is an int that holds the highest score of the game.
+var HighScore int
+
 // Strings
 // CreatorID is a string containing the Discord ID of the person who
 // started the game.
@@ -78,6 +89,12 @@ var CreatorID string
 // PauserID is a string containing the Discord ID of the person who
 // paused the game.
 var PauserID string
+
+//  RoundText is a string containing the round's black card text.
+var RoundText string
+
+// HighScoreID is a string containing the ID of the player with the highest score.
+var HighScoreID string
 
 // Slices
 // Zars is a string slice that will contain the order of which the next
@@ -101,8 +118,15 @@ func InitializeData() {
 	// Moving on, we now want to make the players map.
 	Players = make(map[string]Player)
 
-	// We want to set PlayerCount to 0
+	// We want to clear the following variables..
 	PlayerCount = 0
+	HighScore = 0
+	Zar = 0
+	Round = 0
+	Rounds = 10
+	RoundText = ""
+	CreatorID = ""
+	Zars = nil
 }
 
 // ImportBlackCards will import the black cards.
@@ -138,9 +162,10 @@ func AddPlayer(User *discordgo.User) {
 		PlayerID:   User.ID,
 		Zar:        false,
 	}
-	// Add the player to the Zars list
-	Zars = append(Zars, User.ID)
-
+	// Add the player to the Zars list only if the game hasn't begun
+	if Round != 0 {
+		Zars = append(Zars, User.ID)
+	}
 	// Add 1 to PlayerCount.
 	PlayerCount++
 }
@@ -188,7 +213,7 @@ func RemovePlayer(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if PlayerCount < 3 {
 		s.ChannelMessageSend(m.ChannelID, "Not enough players to keep playing!")
 		Running = false
-		// Reference a function that will determine the winner of the game.
+		EndGame(s)
 		return
 	}
 }
@@ -246,6 +271,7 @@ func GenerateHand(PlayerID string) {
 			// Check if the RandomCard isn't already taken
 			if !RandomCard.taken {
 				RandomCard.taken = true
+				RandomCard.Index = i + 1
 				tmpCards = append(tmpCards, RandomCard)
 				WhiteCards[RandomCard.CardID] = RandomCard
 				break
@@ -264,4 +290,30 @@ func PrepareGame() {
 		// Add the player to the Zars slice.
 		Zars = append(Zars, player.PlayerID)
 	}
+}
+
+// NextZar chooses the next zar in the Zars slice.
+func NextZar() {
+	// If length of the Zars list minus 1 is equal to the current Zar
+	// then we set Zar to 0
+	if len(Zars)-1 == Zar {
+		Zar = 0
+		return
+	}
+	// If not, then just add one to Zar
+	Zar++
+}
+
+// EndGame is the function that is run at the end of the game.
+func EndGame(s *discordgo.Session) {
+	// Loop through all players
+	for _, player := range Players {
+		// if a player's score is higher than the current one, then
+		// update the high score with the player's score.
+		if player.Score > HighScore {
+			HighScore = player.Score
+			HighScoreID = player.PlayerID
+		}
+	}
+	s.ChannelMessageSend(utils.Config.CAHChannelID, fmt.Sprintf("Congratulations %s You won the game with %d points!", Players[HighScoreID].PlayerName, HighScore))
 }
