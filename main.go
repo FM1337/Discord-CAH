@@ -3,10 +3,12 @@ package main
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/FM1337/Discord-CAH/cards"
 	"github.com/FM1337/Discord-CAH/commands"
@@ -16,10 +18,11 @@ import (
 )
 
 func main() {
-	// TODO: Check for cards on start up.
 	utils.Config.LoadConfig()
 	commands.RegisterCommands()
 	cards.LoadCards()
+	// Generate a random seed on startup.
+	rand.Seed(time.Now().UnixNano())
 	discord()
 }
 

@@ -2,11 +2,13 @@ package game
 
 import (
 	"fmt"
+	"math/rand"
 
 	"github.com/FM1337/Discord-CAH/cards"
 	"github.com/bwmarrin/discordgo"
 )
 
+// Structs
 // Player is a struct that holds a player's data.
 type Player struct {
 	PlayerName string      // The player's Discord user name.
@@ -62,6 +64,26 @@ var Players map[string]Player
 // PlayerCount is an int that shows how many player have joined.
 var PlayerCount int
 
+// Rounds is an int that holds the number of rounds to be played in a game.
+var Rounds int
+
+// Round is an int that holds the current round number.
+var Round int
+
+// Strings
+// CreatorID is a string containing the Discord ID of the person who
+// started the game.
+var CreatorID string
+
+// PauserID is a string containing the Discord ID of the person who
+// paused the game.
+var PauserID string
+
+// Slices
+// Zars is a string slice that will contain the order of which the next
+// round's card zar will be chosen.
+var Zars []string
+
 // InitializeData will prepare the maps and slices for the game.
 func InitializeData() {
 	// First we do the black cards
@@ -116,8 +138,59 @@ func AddPlayer(User *discordgo.User) {
 		PlayerID:   User.ID,
 		Zar:        false,
 	}
+	// Add the player to the Zars list
+	Zars = append(Zars, User.ID)
+
 	// Add 1 to PlayerCount.
-	PlayerCount = PlayerCount + 1
+	PlayerCount++
+}
+
+// RemovePlayer removes a player from the game.
+func RemovePlayer(s *discordgo.Session, m *discordgo.MessageCreate) {
+	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s has left the game!", m.Author.Username))
+	// Let's check if the game is paused, this is important because
+	// if the person leaving the game is the one who paused, we want to
+	// unpause it.
+	if Paused {
+		if m.Author.ID == PauserID {
+			// Instead of writing extra code, let's just reference the
+			// pause function.
+			Pause(s, m)
+		}
+	}
+
+	// Next we want to check if the person is the CardZar
+	if Players[m.Author.ID].Zar {
+		s.ChannelMessageSend(m.ChannelID, "The CardZar has left, next round!")
+		// Reference a function that will move players to the next round.
+	}
+
+	// Return the player's cards to the deck.
+	for _, card := range Players[m.Author.ID].Cards {
+		ReleaseCard(card.CardID)
+	}
+
+	// Remove the player from the Zars list
+	// We'll generate a temporary ZarsList to update the global one with.
+	TmpZars := []string{}
+	for _, zar := range Zars {
+		if zar != m.Author.ID {
+			TmpZars = append(TmpZars, zar)
+		}
+	}
+	Zars = TmpZars
+
+	// Moving on let's delete the player from the Players map.
+	delete(Players, m.Author.ID)
+	// then we remove one from the PlayerCount
+	PlayerCount--
+	// Finally we check to see if there's still enough players to keep playing
+	if PlayerCount < 3 {
+		s.ChannelMessageSend(m.ChannelID, "Not enough players to keep playing!")
+		Running = false
+		// Reference a function that will determine the winner of the game.
+		return
+	}
 }
 
 // UserInGame checks if a user is in the game.
@@ -130,4 +203,65 @@ func UserInGame(PlayerID string) bool {
 	}
 	// Otherwise return false.
 	return false
+}
+
+// GetUserName returns the username of the Discord User that matches the
+// given ID.
+func GetUserName(ID string, s *discordgo.Session) string {
+	// Create a user object based on the ID
+	user, err := s.User(ID)
+
+	// if no user is found just return the ID.
+	if err != nil {
+		return ID
+	}
+	// Otherwise return the user's username.
+	return user.Username
+}
+
+// ReleaseCard will release the player's card back to the deck to allow it
+// to be used by other players.
+func ReleaseCard(CardID int) {
+	// tmpcard is a temporary element which will allow us to update the
+	// card's taken bool.
+	tmpcard := WhiteCards[CardID]
+	// Set taken to false.
+	tmpcard.taken = false
+	// Update the map entry with the new data.
+	WhiteCards[CardID] = tmpcard
+}
+
+// GenerateHand will generate a player's hand at the beginning of the game.
+func GenerateHand(PlayerID string) {
+	// tmpCards is a temporary slice used to hold the cards to be added
+	// to a player's hand.
+	tmpCards := []WhiteCard{}
+	// tmpPlayer is a temporary copy of a player in the Players map and
+	// is used to update the player's information with the new cards.
+	tmpPlayer := Players[PlayerID]
+	for i := 0; i <= 10; i++ {
+		for {
+			// RandomCard is a random card chosen from the WhiteCards map.
+			RandomCard := WhiteCards[rand.Intn(len(WhiteCards))]
+			// Check if the RandomCard isn't already taken
+			if !RandomCard.taken {
+				RandomCard.taken = true
+				tmpCards = append(tmpCards, RandomCard)
+				WhiteCards[RandomCard.CardID] = RandomCard
+				break
+			}
+		}
+	}
+	Players[PlayerID] = tmpPlayer
+}
+
+// PrepareGame takes care of what's left to do before the game starts.
+func PrepareGame() {
+	// Let's generate the player's hands
+	for _, player := range Players {
+		// Generate the player's hand.
+		GenerateHand(player.PlayerID)
+		// Add the player to the Zars slice.
+		Zars = append(Zars, player.PlayerID)
+	}
 }

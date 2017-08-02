@@ -44,14 +44,48 @@ func Start(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 	}
 	s.ChannelMessageSend(m.ChannelID, "The game is starting!")
+	// Let's take care of a few more things before we start the game.
+	PrepareGame()
+	// Run Game function
 }
 
 // Pause will pause the game.
 func Pause(s *discordgo.Session, m *discordgo.MessageCreate) {
+	// If a game is not running, obviously we don't pause it.
 	if !Running {
 		s.ChannelMessageSend(m.ChannelID, "No game is running!")
 		return
 	}
+
+	// Make sure that the person trying to pause/unpause the game is
+	// actually in the game.
+	if !UserInGame(m.Author.ID) {
+		s.ChannelMessageSend(m.ChannelID, "Only players may pause the game!")
+		return
+	}
+
+	// If the game is paused, we want to unpause it
+	if Paused {
+		// First let's check if the person attempting to unpause it
+		// is the one who paused it or started the game
+		if m.Author.ID == PauserID || m.Author.ID == CreatorID {
+			s.ChannelMessageSend(m.ChannelID, "The game has been unpaused!")
+			Paused = false
+			// Set the PauserID to blank now that the game is unpaused.
+			PauserID = ""
+			return
+		}
+		// If the IDs do not match do the following.
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Only %s or %s may unpause the game", GetUserName(PauserID, s), GetUserName(CreatorID, s)))
+		return
+
+	}
+
+	// If the game is not paused and the user is in the game, let's pause it
+	Paused = true
+	// Set PauserID to the Pauser's Discord ID.
+	PauserID = m.Author.ID
+	s.ChannelMessageSend(m.ChannelID, "The game has been paused!")
 }
 
 // Stop will stop the game
@@ -83,10 +117,19 @@ func Join(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 // Leave will remove you from the game
 func Leave(s *discordgo.Session, m *discordgo.MessageCreate) {
+	// Can't leave a game that ain't running.
 	if !Running {
 		s.ChannelMessageSend(m.ChannelID, "No game is running!")
 		return
 	}
+
+	// First check if the user attempting to leave is actually in the game
+	if !UserInGame(m.Author.ID) {
+		s.ChannelMessageSend(m.ChannelID, "Only players may leave the game!")
+		return
+	}
+
+	RemovePlayer(s, m)
 }
 
 // Wait30Seconds will wait 30 seconds, it also respects if the game is paused
