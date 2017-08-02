@@ -46,7 +46,7 @@ func Start(s *discordgo.Session, m *discordgo.MessageCreate) {
 	s.ChannelMessageSend(m.ChannelID, "The game is starting!")
 	// Let's take care of a few more things before we start the game.
 	PrepareGame()
-	// Run Game function
+	RoundStart(s, m)
 }
 
 // Pause will pause the game.

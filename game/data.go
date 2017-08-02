@@ -3,6 +3,7 @@ package game
 import (
 	"fmt"
 	"math/rand"
+	"time"
 
 	"github.com/FM1337/Discord-CAH/cards"
 	"github.com/FM1337/Discord-CAH/utils"
@@ -12,11 +13,12 @@ import (
 // Structs
 // Player is a struct that holds a player's data.
 type Player struct {
-	PlayerName string      // The player's Discord user name.
-	PlayerID   string      // The player's Discord ID.
-	Zar        bool        // Is the player the card zar?
-	Cards      []WhiteCard // The player's hand.
-	Score      int         // The player's score
+	PlayerName  string      // The player's Discord user name.
+	PlayerID    string      // The player's Discord ID.
+	Zar         bool        // Is the player the card zar?
+	Cards       []WhiteCard // The player's hand.
+	PlayedCards []WhiteCard // The cards the player played.
+	Score       int         // The player's score
 }
 
 // WhiteCard is a struct that holds the data about a white card.
@@ -35,11 +37,11 @@ type BlackCard struct {
 	Cards  int    // The amount of cards to play for this card.
 }
 
-// RoundResults is a struct that contains data about the chosen cards by players.
-type RoundResults struct {
-	PlayerName  string      // The Player's Discord name.
-	PlayerID    string      // The Player's Discord ID.
-	PlayerCards []WhiteCard // Slice of WhiteCard struct.
+// RoundResult is a struct that contains data about the chosen cards by players.
+type RoundResult struct {
+	PlayerName string // The Player's Discord name.
+	PlayerID   string // The Player's Discord ID.
+	PlayString string // The result of the chosen cards.
 }
 
 // Bools
@@ -51,6 +53,9 @@ var Running bool
 
 // Paused is a bool to tell if the game is paused.
 var Paused bool
+
+// Judging is a bool to tell if the round is in the judging stage.
+var Judging bool
 
 // Maps
 // BlackCards is a map of the BlackCard struct.
@@ -101,6 +106,9 @@ var HighScoreID string
 // round's card zar will be chosen.
 var Zars []string
 
+// RoundResults is a slice of RoundResult.
+var RoundResults []RoundResult
+
 // InitializeData will prepare the maps and slices for the game.
 func InitializeData() {
 	// First we do the black cards
@@ -127,6 +135,7 @@ func InitializeData() {
 	RoundText = ""
 	CreatorID = ""
 	Zars = nil
+	Judging = false
 }
 
 // ImportBlackCards will import the black cards.
@@ -290,6 +299,8 @@ func PrepareGame() {
 		// Add the player to the Zars slice.
 		Zars = append(Zars, player.PlayerID)
 	}
+	// Set round to 1
+	Round = 1
 }
 
 // NextZar chooses the next zar in the Zars slice.
@@ -316,4 +327,62 @@ func EndGame(s *discordgo.Session) {
 		}
 	}
 	s.ChannelMessageSend(utils.Config.CAHChannelID, fmt.Sprintf("Congratulations %s You won the game with %d points!", Players[HighScoreID].PlayerName, HighScore))
+	// At this point, I would reset all the variables and stuff, but the
+	// InitializeData function that runs when a new game is started
+	// does it for me.
+}
+
+// SwapCard replaces the used cards with new ones after each round.
+func SwapCard() {
+
+	// oldCards is a slice that holds the used cards.
+	oldCards := []WhiteCard{}
+
+	// Loop through the player list.
+	for _, player := range Players {
+
+		// Loop through the player's played cards
+		for _, card := range player.PlayedCards {
+			oldCards = append(oldCards, card)
+		}
+
+		// Loop through the player's hand
+		for _, card := range player.Cards {
+			// Then do loop of the oldCards list
+			for _, oldCard := range oldCards {
+				// If the card is in the old cards list, get a new one.
+				if card.CardID == oldCard.CardID {
+					card = DrawCard()
+					break
+				}
+			}
+		}
+		// Update the player's data
+		Players[player.PlayerID] = player
+	}
+
+	// Finally let's loop through the old cards list and release them
+	// all back into the deck.
+	for _, card := range oldCards {
+		card.taken = false
+		WhiteCards[card.CardID] = card
+	}
+
+}
+
+// DrawCard draws a random card and returns it
+func DrawCard() WhiteCard {
+	for {
+		randomCard := WhiteCards[rand.Intn(len(WhiteCards))]
+		// If the random card isn't already taken
+		if !randomCard.taken {
+			// Set it as taken
+			randomCard.taken = true
+			// Update it in the map
+			WhiteCards[randomCard.CardID] = randomCard
+			return randomCard
+		}
+		// Wait half a second before looping again
+		time.Sleep(500 * time.Millisecond)
+	}
 }

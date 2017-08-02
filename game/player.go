@@ -11,16 +11,28 @@ import (
 
 // PickCard will allow players to pick a card to play from their hand.
 func PickCard(s *discordgo.Session, m *discordgo.MessageCreate) {
+	// If Judging don't allow card changes
+	if Judging {
+		return
+	}
 
 }
 
 // ChooseWinner will allow the Card Zar to choose a winner.
 func ChooseWinner(s *discordgo.Session, m *discordgo.MessageCreate) {
-
+	// If not judging we don't want winners picked yet
+	if !Judging {
+		return
+	}
 }
 
 // MessageHand will message a player their cards.
 func MessageHand(PlayerID string, s *discordgo.Session) {
+	// If the player is the zar, then we don't want to send them their hand.
+	if Players[PlayerID].Zar {
+		return
+	}
+
 	// MessageError is a bool that is set to true in the case of an error.
 	MessageError := false
 	// fields is a MessageEmbedField slice that holds fields for a discord message embed.
