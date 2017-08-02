@@ -157,6 +157,8 @@ func Wait30Seconds() {
 func Wait1Minute() {
 	// The 1 minute for loop.
 	for i := 0; i <= 60; i++ {
+		// Sleep for 1 second
+		time.Sleep(1 * time.Second)
 		// Check to see if has been stopped
 		if !Running {
 			return
@@ -165,9 +167,12 @@ func Wait1Minute() {
 		if Paused {
 			// If it is paused, take 1 away from i
 			i = i - 1
+			continue
 		}
-		// Sleep for 1 second
-		time.Sleep(1 * time.Second)
+		// Check to see if judging is over.
+		if !Judging {
+			return
+		}
 	}
 
 }
