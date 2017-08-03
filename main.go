@@ -58,7 +58,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	if m.ChannelID == utils.Config.CAHChannelID {
+	if m.ChannelID == utils.Config.CAHChannelID || utils.AllowCommandPrivmsg(s, m) {
 		if strings.HasPrefix(m.Content, utils.Config.Prefix) {
 			command := strings.Split(m.Content[1:len(m.Content)], " ")
 			name := strings.ToLower(command[0])
