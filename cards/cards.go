@@ -25,12 +25,13 @@ type whiteCard struct {
 // CardList is a cards interface.
 var CardList cards
 
-var cardListMap map[string]cards = make(map[string]cards)
+// CardListMap is a map of the cards struct.
+var CardListMap map[string]cards = make(map[string]cards)
 
 // LoadDefaultCards loads the default cards into memory on startup
 func LoadDefaultCards() {
 	// defaultCards is used to import the default cards
-	defaultCards := cardListMap["default"]
+	defaultCards := CardListMap["default"]
 
 	// Load default black cards.
 	BCJson, err := ioutil.ReadFile("./cards/default/blackCards.json")
@@ -63,7 +64,7 @@ func LoadDefaultCards() {
 	}
 
 	// Update the map
-	cardListMap["default"] = defaultCards
+	CardListMap["default"] = defaultCards
 	loadCustomCards()
 	loadIntoSlice()
 }
@@ -78,7 +79,7 @@ func loadCustomCards() {
 	whiteCardFiles := []string{}
 
 	// customCard holds the custom cards in a map.
-	customCards := cardListMap["custom"]
+	customCards := CardListMap["custom"]
 	// Look for .json files in the black cards directory first.
 	files, err := ioutil.ReadDir("./cards/custom/BlackCards/")
 	if err != nil {
@@ -151,13 +152,13 @@ func loadCustomCards() {
 	customCards.BlackCards = tmpBlackcards
 	customCards.WhiteCards = tmpWhitecards
 	// Now let's update the map
-	cardListMap["custom"] = customCards
+	CardListMap["custom"] = customCards
 
 }
 
 func loadIntoSlice() {
 	// Loads the cards from the map into the CardList
-	for _, card := range cardListMap {
+	for _, card := range CardListMap {
 		// load the black cards into CardList first.
 		for _, blackcard := range card.BlackCards {
 			CardList.BlackCards = append(CardList.BlackCards, blackcard)
