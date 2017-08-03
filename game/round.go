@@ -41,7 +41,7 @@ func RoundStart(s *discordgo.Session, m *discordgo.MessageCreate) {
 		time.Sleep(500 * time.Millisecond)
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s", RoundText))
 		time.Sleep(500 * time.Millisecond)
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s is the CardZar!", Players[Zars[Zar]].PlayerName))
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s is the Cardzar!", Players[Zars[Zar]].PlayerName))
 
 		// Now send the players their cards.
 		for _, player := range Players {
