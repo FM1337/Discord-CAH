@@ -180,6 +180,7 @@ func AddPlayer(User *discordgo.User) {
 	// Add the player to the Zars list only if the game hasn't begun
 	if Round != 0 {
 		Zars = append(Zars, User.ID)
+		GenerateHand(User.ID)
 	}
 	// Add 1 to PlayerCount.
 	PlayerCount++
