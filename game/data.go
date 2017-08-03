@@ -57,6 +57,9 @@ var Paused bool
 // Judging is a bool to tell if the round is in the judging stage.
 var Judging bool
 
+// Refreshing is a bool to tell if the cards are currently being refreshed.
+var Refreshing bool
+
 // Maps
 // BlackCards is a map of the BlackCard struct.
 var BlackCards map[int]BlackCard

@@ -14,6 +14,11 @@ func Start(s *discordgo.Session, m *discordgo.MessageCreate) {
 		s.ChannelMessageSend(m.ChannelID, "A game is already running!")
 		return
 	}
+	// Make sure the cards aren't being refreshed
+	if Refreshing {
+		s.ChannelMessageSend(m.ChannelID, "Sorry the cards are in the progress of being refreshed, please try again in a few moments!")
+		return
+	}
 	// Initialize the data before adding players.
 	InitializeData()
 	// Set the Creator ID

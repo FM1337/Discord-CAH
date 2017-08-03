@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"os"
+	"strings"
 )
 
 // Config is a config interface.
@@ -12,6 +13,7 @@ type config struct {
 	DiscordToken string
 	CAHChannelID string
 	Prefix       string
+	AdminIDs     []string
 }
 
 func (conf *config) LoadConfig() {
@@ -24,5 +26,6 @@ func (conf *config) LoadConfig() {
 		DiscordToken: os.Getenv("DiscordToken"),
 		CAHChannelID: os.Getenv("CAHChannelID"),
 		Prefix:       os.Getenv("Prefix"),
+		AdminIDs:     strings.Split(os.Getenv("AdminIDs"), ","),
 	}
 }
