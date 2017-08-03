@@ -18,6 +18,19 @@ func RoundStart(s *discordgo.Session, m *discordgo.MessageCreate) {
 		RoundCardID = BlackCards[rand.Intn(len(BlackCards))].CardID
 		RoundText = strings.Replace(BlackCards[RoundCardID].Text, "_", "______", -1)
 
+		// If the RoundText is blank, then find another black card that has text.
+		if RoundText == "" {
+			for {
+				RoundCardID = BlackCards[rand.Intn(len(BlackCards))].CardID
+				RoundText = strings.Replace(BlackCards[RoundCardID].Text, "_", "______", -1)
+				if RoundText != "" {
+					break
+				}
+				// Wait half a second then continue.
+				time.Sleep(500 * time.Millisecond)
+			}
+		}
+
 		// Set the Zar
 		TmpPlayer := Players[Zars[Zar]]
 		TmpPlayer.Zar = true
@@ -58,7 +71,10 @@ func RoundStart(s *discordgo.Session, m *discordgo.MessageCreate) {
 			if player.Zar {
 				continue
 			}
-
+			// if there are no played cards.
+			if len(player.PlayedCards) == 0 {
+				skip = true
+			}
 			// tmpString is a temporary string
 			tmpString := BlackCards[RoundCardID].Text
 			for _, card := range player.PlayedCards {
@@ -138,4 +154,10 @@ func NextRound(s *discordgo.Session) {
 	Judging = false
 	// Nil round results.
 	RoundResults = nil
+
+	// nil Player's chosen cards
+	for _, player := range Players {
+		player.PlayedCards = nil
+		Players[player.PlayerID] = player
+	}
 }

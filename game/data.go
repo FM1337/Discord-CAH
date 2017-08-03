@@ -343,6 +343,7 @@ func EndGame(s *discordgo.Session) {
 	}
 	// Error catching here, if HighScoreID is blank, then no winners.
 	if HighScoreID == "" {
+		s.ChannelMessageSend(utils.Config.CAHChannelID, "The game has ended with no winners. Better luck next time!")
 		return
 	}
 
@@ -367,12 +368,13 @@ func SwapCard() {
 		}
 
 		// Loop through the player's hand
-		for _, card := range player.Cards {
+		for i, card := range player.Cards {
 			// Then do loop of the oldCards list
 			for _, oldCard := range oldCards {
 				// If the card is in the old cards list, get a new one.
 				if card.CardID == oldCard.CardID {
-					card = DrawCard()
+					card = DrawCard(card.Index)
+					player.Cards[i] = card
 					break
 				}
 			}
@@ -385,19 +387,23 @@ func SwapCard() {
 	// all back into the deck.
 	for _, card := range oldCards {
 		card.taken = false
+		card.Index = 0
 		WhiteCards[card.CardID] = card
 	}
 
 }
 
 // DrawCard draws a random card and returns it
-func DrawCard() WhiteCard {
+func DrawCard(index int) WhiteCard {
 	for {
+
 		randomCard := WhiteCards[rand.Intn(len(WhiteCards))]
 		// If the random card isn't already taken
 		if !randomCard.taken {
 			// Set it as taken
 			randomCard.taken = true
+			randomCard.Index = index
+			fmt.Printf("Card text: %s\n", randomCard.Text)
 			// Update it in the map
 			WhiteCards[randomCard.CardID] = randomCard
 			return randomCard

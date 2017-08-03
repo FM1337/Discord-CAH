@@ -16,6 +16,8 @@ func Start(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 	// Initialize the data before adding players.
 	InitializeData()
+	// Set the Creator ID
+	CreatorID = m.Author.ID
 	// Add the game starter to the player list.
 	AddPlayer(m.Author)
 	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s has started a game!", m.Author.Username))
@@ -103,6 +105,7 @@ func Stop(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	Running = false
+	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s stopped the game!", m.Author.Username))
 }
 
 // Join will join you into the game

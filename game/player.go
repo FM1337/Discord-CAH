@@ -32,6 +32,9 @@ func PickCard(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// Make sure we have the correct number of cards being played.
 	fmt.Printf("%d", len(args))
 	if len(args)-1 == BlackCards[RoundCardID].Cards {
+		// updatedCards is a temporary bool that tells us if our card
+		// choice has been updated or not.
+		updatedCards := false
 		// Loop through our message arguments and see if they are correct.
 		for _, arg := range args[1:] {
 			// tmpCard is a temporary variable used to hold a matching
@@ -49,11 +52,23 @@ func PickCard(s *discordgo.Session, m *discordgo.MessageCreate) {
 			}
 
 			// Check to make sure that the Player's cards aren't already chosen
-			if len(Players[m.Author.ID].PlayedCards) != 0 {
-				// If they are, then clear them out.
-				tmpPlayer := Players[m.Author.ID]
-				tmpPlayer.PlayedCards = nil
-				Players[m.Author.ID] = tmpPlayer
+			if !updatedCards {
+				if len(Players[m.Author.ID].PlayedCards) != 0 {
+					// If they are, then clear them out.
+					tmpPlayer := Players[m.Author.ID]
+					tmpPlayer.PlayedCards = nil
+					Players[m.Author.ID] = tmpPlayer
+					// Set updatedCards to true so that we don't overwrite our cards.
+				}
+				updatedCards = true
+			}
+
+			// Check to make sure the player isn't using the same card twice.
+			if BlackCards[RoundCardID].Cards >= 2 {
+				if strings.Contains(strings.Join(args[2:], " "), args[1]) {
+					s.ChannelMessageSend(m.ChannelID, "You may not use the same card twice!")
+					return
+				}
 			}
 
 			// Now let's loop through our cardlist and see if a match
@@ -74,11 +89,10 @@ func PickCard(s *discordgo.Session, m *discordgo.MessageCreate) {
 			// entry in the players map
 			tmpPlayer := Players[m.Author.ID]
 			tmpPlayer.PlayedCards = append(tmpPlayer.PlayedCards, tmpCard)
-
 			// Update the player entry
 			Players[m.Author.ID] = tmpPlayer
-
 		}
+
 		// Now let's loop so that we can generate a message to send to
 		// the player.
 		// tmpString is a temporary string
@@ -87,7 +101,7 @@ func PickCard(s *discordgo.Session, m *discordgo.MessageCreate) {
 			// If no underscores, then add the card to the end.
 			if !strings.Contains(tmpString, "_") {
 				tmpString = fmt.Sprintf("%s %s", tmpString, card.Text)
-				continue
+				break
 			}
 			tmpString = strings.Replace(tmpString, "_", card.Text, 1)
 		}
