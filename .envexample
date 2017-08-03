@@ -2,4 +2,7 @@ DiscordToken="tokenhere"
 
 CAHChannelID="channelIDHere"
 
+
+AdminIDs = "ID1,ID2,AndSoOn"
+
 Prefix="PrefixHere"
