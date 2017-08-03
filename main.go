@@ -20,7 +20,7 @@ import (
 func main() {
 	utils.Config.LoadConfig()
 	commands.RegisterCommands()
-	cards.LoadCards()
+	cards.LoadDefaultCards()
 	// Generate a random seed on startup.
 	rand.Seed(time.Now().UnixNano())
 	discord()
